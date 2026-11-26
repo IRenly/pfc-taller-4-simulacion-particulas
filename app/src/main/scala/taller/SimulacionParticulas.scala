@@ -86,7 +86,7 @@ class SimulacionParticulas {
         val mitad = desde + (hasta-desde)/2
 
         val (izquierda, derecha) = parallel(
-          calcular (desde, hasta),
+          calcular (desde, mitad),
           calcular(mitad, hasta)
         )
         izquierda + derecha
@@ -163,11 +163,17 @@ class SimulacionParticulas {
   }
 
   /** El cociente entre el tiempo secuencial y el paralelo. */
-  def aceleracion(tSecuencial: Double, tParalelo: Double): Double = ???
+  def aceleracion(tSecuencial: Double, tParalelo: Double): Double =
+    tSecuencial / tParalelo
 
   /**
    * El umbral que menos tarda de una lista de candidatos. Con la lista vacía,
    * el tamaño del sistema, que equivale a no repartir.
    */
-  def umbralConveniente(s: Sistema, dt: Double, umbrales: List[Int]): Int = ???
+  def umbralConveniente(s: Sistema, dt: Double, umbrales: List[Int]): Int =
+    if (umbrales.isEmpty) s.length
+    else{
+      val tiempos = for (u <- umbrales) yield (u, medir(3)(pasoParalelo(s, dt, u)))
+      tiempos.minBy(_._2)._1
+    }
 }

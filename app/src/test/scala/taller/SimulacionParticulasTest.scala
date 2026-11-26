@@ -298,4 +298,31 @@ class SimulacionParticulasTest extends AnyFunSuite {
     val candidatos = List(16, 128, 1024)
     assert(candidatos.contains(umbralConveniente(grande, 0.5, candidatos)))
   }
+
+  val cinco: Sistema = Array(
+    Particula(Vector2(0, 0), Vector2(1, 1), 1.0),
+    Particula(Vector2(2, 0), Vector2(0, 1), 2.0),
+    Particula(Vector2(-1, 3), Vector2(2, -1), 0.5),
+    Particula(Vector2(4, 4), Vector2(-2, 0), 3.0),
+    Particula(Vector2(5, -2), Vector2(1, 3), 1.5))
+
+  test("aceleracion: el paralelo más lento da menos de 1") {
+    assert(cerca(aceleracion(50.0, 100.0), 0.5))
+  }
+
+  test("aceleracion: secuencial de tiempo cero da 0") {
+    assert(cerca(aceleracion(0.0, 10.0), 0.0))
+  }
+
+  test("aceleracion: tres veces más rápido con decimales da 3.0") {
+    assert(cerca(aceleracion(7.5, 2.5), 3.0))
+  }
+
+  test("umbralConveniente: con un solo candidato devuelve ese candidato") {
+    assert(umbralConveniente(cinco, 0.5, List(2)) == 2)
+  }
+
+  test("umbralConveniente: sin candidatos sobre un sistema de cinco devuelve cinco") {
+    assert(umbralConveniente(cinco, 0.5, Nil) == 5)
+  }
 }
