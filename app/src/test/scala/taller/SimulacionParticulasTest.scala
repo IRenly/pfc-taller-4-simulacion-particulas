@@ -229,7 +229,56 @@ class SimulacionParticulasTest extends AnyFunSuite {
   test("centroDeMasaParalelo: sin masa el centro es el origen") {
     assert(centroDeMasaParalelo(vacio, 1) == Vector2(0, 0))
   }
+  // Pruebas propias Punto 3
+  test("energiaParalela: calcula correctamente energías con masas y velocidades diferentes") {
+    val sistema: Sistema = Array(
+      Particula(Vector2(0, 0), Vector2(3, 4), 1.0),
+      Particula(Vector2(2, 3), Vector2(0, 2), 3.0)
+    )
 
+    assert(cerca(energiaParalela(sistema, 1), 18.5))
+  }
+
+  test("energiaParalela: calcula correctamente un sistema impar de cinco partículas") {
+    val sistema: Sistema = Array.tabulate(5) { i =>
+      val k = i + 1
+      Particula(
+        Vector2(k.toDouble, 0.0),
+        Vector2(k.toDouble, -k.toDouble),
+        k.toDouble
+      )
+    }
+
+    assert(cerca(energiaParalela(sistema, 2), 225.0))
+  }
+
+  test("energiaParalela: funciona con umbral cero") {
+    val sistema: Sistema = Array(
+      Particula(Vector2(1, 2), Vector2(2, 3), 2.0),
+      Particula(Vector2(3, 4), Vector2(1, 0), 4.0)
+    )
+
+    assert(cerca(energiaParalela(sistema, 0), 15.0))
+  }
+
+  test("centroDeMasaParalelo: combina masas diferentes con coordenadas negativas") {
+    val sistema: Sistema = Array(
+      Particula(Vector2(1, 3), Vector2(0, 0), 2.0),
+      Particula(Vector2(5, -1), Vector2(0, 0), 6.0)
+    )
+
+    assert(cerca(centroDeMasaParalelo(sistema, 1), Vector2(4.0, 0.0)))
+  }
+
+  test("centroDeMasaParalelo: calcula correctamente tres partículas con masas diferentes") {
+    val sistema: Sistema = Array(
+      Particula(Vector2(2, 1), Vector2(0, 0), 1.0),
+      Particula(Vector2(-1, 4), Vector2(0, 0), 2.0),
+      Particula(Vector2(5, -2), Vector2(0, 0), 3.0)
+    )
+
+    assert(cerca(centroDeMasaParalelo(sistema, 1), Vector2(2.5, 0.5)))
+  }
   // Punto 4 -------------------------------------------------------------------
 
   test("trabajo: una operación por partícula") { assert(trabajo(1024) == 1024) }
