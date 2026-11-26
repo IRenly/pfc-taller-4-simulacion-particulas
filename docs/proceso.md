@@ -1,12 +1,102 @@
 # Informe de Proceso — Taller 4: Simulación de Partículas en Paralelo
 
 ## 1. Punto 1: Un paso de la simulación
-*(Implementado por DilanG26)*
-- `mover(p: Particula, dt: Double)`: Actualiza la posición de una partícula según $\vec{r}_{nuevo} = \vec{r} + \vec{v} \cdot dt$. La velocidad y la masa permanecen invariantes.
-- `pasoSecuencial(s: Sistema, dt: Double)`: Aplica `pasoSegmento` sobre el rango total $[0, n)$.
-- `pasoSegmento(s: Sistema, dt: Double, desde: Int, hasta: Int)`: Transforma funcionalmente el subrango $[\text{desde}, \text{hasta})$ generando un nuevo arreglo con cada partícula movida.
-- `pasoParalelo(s: Sistema, dt: Double, umbral: Int)`: Divide recursivamente el sistema en dos mitades con `parallel` mientras el tamaño del segmento sea mayor al umbral dado; por debajo de dicho umbral, resuelve el tramo en secuencial con `pasoSegmento`.
 
+### 1.1. Definición y enfoque funcional
+
+Un paso de la simulación mueve cada partícula según su velocidad, sin mirar a las demás. Como cada movimiento es independiente, el trabajo se puede repartir entre tramos del sistema.
+
+```scala
+def mover(p: Particula, dt: Double): Particula =
+  p.copy(pos = p.pos + p.vel * dt)
+
+def pasoSecuencial(s: Sistema, dt: Double): Sistema =
+  pasoSegmento(s, dt, 0, s.length)
+
+def pasoSegmento(s: Sistema, dt: Double, desde: Int, hasta: Int): Sistema =
+  (for (i <- desde until hasta) yield mover(s(i), dt)).toArray
+
+def pasoParalelo(s: Sistema, dt: Double, umbral: Int): Sistema = {
+  val piso = Math.max(umbral, 1)
+
+  def paso(desde: Int, hasta: Int): Sistema =
+    if (hasta - desde <= piso) pasoSegmento(s, dt, desde, hasta)
+    else {
+      val mitad = desde + (hasta - desde) / 2
+      val (izquierda, derecha) = parallel(paso(desde, mitad), paso(mitad, hasta))
+      izquierda ++ derecha
+    }
+
+  paso(0, s.length)
+}
+```
+
+- `mover`: la posición nueva es $\vec{r}_{nuevo} = \vec{r} + \vec{v} \cdot dt$. `copy` cambia solo `pos`, así que la velocidad y la masa quedan como estaban.
+- `pasoSegmento`: aplica `mover` a los índices de `desde` (incluido) a `hasta` (excluido) y devuelve un arreglo **nuevo** con `hasta - desde` partículas. El sistema original nunca se modifica.
+- `pasoSecuencial`: es `pasoSegmento` sobre todo el sistema, $[0, n)$. Así la versión secuencial y la paralela hacen el mismo trabajo de la misma forma.
+- `pasoParalelo`: parte el sistema por la mitad con `parallel` mientras el tramo tenga más elementos que el umbral. Los tramos que ya no se parten se resuelven con `pasoSegmento`.
+
+### 1.2. Explicación paso a paso de `pasoParalelo`
+
+**El piso del umbral.** `val piso = Math.max(umbral, 1)`. Un tramo de una sola partícula no se puede partir en dos más chicos. Con un umbral de 0 o negativo, la condición nunca se cumpliría y la función se llamaría a sí misma sin terminar. El piso hace que cualquier umbral menor que 1 se comporte como 1.
+
+**Caso base.** Si `hasta - desde <= piso`, el tramo se resuelve en secuencial con `pasoSegmento`. Esto incluye el tramo vacío.
+
+**Caso recursivo.** Se calcula `mitad = desde + (hasta - desde) / 2`. La división entera hace que, si el tramo tiene un número impar de partículas, la mitad derecha quede con una más. Luego `parallel` recibe los dos tramos, $[desde, mitad)$ y $[mitad, hasta)$, y devuelve la pareja de resultados, el de la izquierda primero. Por último, `izquierda ++ derecha` pega los dos arreglos conservando el orden.
+
+### 1.3. Traza con tres partículas y umbral 1
+
+Sea `s = Array(p0, p1, p2)`, `dt = 1.0` y `umbral = 1`. Escribimos `mi` para `mover(pi, dt)`.
+
+1. `paso(0, 3)`: tamaño 3 > 1, se parte con `mitad = 0 + 3/2 = 1`.
+2. `parallel(paso(0, 1), paso(1, 3))`.
+3. `paso(0, 1)`: tamaño 1 <= 1, es una hoja y da `Array(m0)`.
+4. `paso(1, 3)`: tamaño 2 > 1, se parte con `mitad = 1 + 2/2 = 2`, y llama a `parallel(paso(1, 2), paso(2, 3))`.
+5. Las dos hojas: `paso(1, 2) = Array(m1)` y `paso(2, 3) = Array(m2)`.
+6. Se pega de abajo hacia arriba: `paso(1, 3) = Array(m1, m2)` y `paso(0, 3) = Array(m0, m1, m2)`.
+
+El resultado es el mismo que el de `pasoSecuencial`, y en el mismo orden.
+
+```mermaid
+sequenceDiagram
+    participant R as paso(0, 3)
+    participant A as paso(0, 1)
+    participant B as paso(1, 3)
+    participant C as paso(1, 2)
+    participant D as paso(2, 3)
+
+    R->>A: parallel, mitad izquierda
+    R->>B: parallel, mitad derecha
+    A-->>R: Array(m0)
+    B->>C: parallel, mitad izquierda
+    B->>D: parallel, mitad derecha
+    C-->>B: Array(m1)
+    D-->>B: Array(m2)
+    B-->>R: Array(m1, m2)
+    R-->>R: Array(m0) ++ Array(m1, m2)
+```
+
+### 1.4. Árbol de llamados con siete partículas y umbral 2
+
+Los tramos con 2 partículas o menos son hojas y se resuelven con `pasoSegmento`. Los demás se parten:
+
+```mermaid
+graph TD
+    A["0 a 7: parallel"] --> B["0 a 3: parallel"]
+    A --> C["3 a 7: parallel"]
+    B --> D["0 a 1: pasoSegmento"]
+    B --> E["1 a 3: pasoSegmento"]
+    C --> F["3 a 5: pasoSegmento"]
+    C --> G["5 a 7: pasoSegmento"]
+```
+
+Las hojas cubren $[0,1)$, $[1,3)$, $[3,5)$ y $[5,7)$: $1 + 2 + 2 + 2 = 7$ partículas, cada una en exactamente una hoja. Hay 3 llamados a `parallel`, uno por cada tramo que se parte.
+
+### 1.5. Casos límite
+
+- **Umbral igual al tamaño del sistema (o mayor):** `paso(0, n)` se resuelve de una vez con `pasoSegmento(s, dt, 0, n)`. No se llama a `parallel` y el trabajo es el de `pasoSecuencial`.
+- **Umbral 0 o negativo:** el piso lo convierte en 1 y se parte hasta tramos de una partícula.
+- **Sistema vacío:** `paso(0, 0)` tiene tamaño 0, no supera el piso y devuelve un arreglo vacío.
 ---
 
 ## 2. Punto 2: Magnitudes Globales (Secuencial)

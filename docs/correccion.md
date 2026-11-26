@@ -6,6 +6,110 @@ Un programa funcional $P_f : A \to B$ es correcto con respecto a una especificac
 
 $$\forall a \in A : P_f(a) = f(a)$$
 
+## Punto 1: Un paso de la simulación
+
+### Especificación
+
+Sea $S = \langle s_0, s_1, \ldots, s_{n-1} \rangle$ un sistema de $n$ partículas, con $s_i = (\vec{r}_i, \vec{v}_i, m_i)$, y sea $dt$ el paso de tiempo. Definimos sobre una partícula:
+
+$$\text{avanza}(s_i, dt) = (\vec{r}_i + \vec{v}_i \cdot dt,\ \vec{v}_i,\ m_i)$$
+
+y, para $0 \leq d \leq h \leq n$, el tramo avanzado entre $d$ (incluido) y $h$ (excluido):
+
+$$\text{tramo}(S, dt, d, h) = \langle \text{avanza}(s_d, dt),\ \ldots,\ \text{avanza}(s_{h-1}, dt) \rangle$$
+
+Se debe cumplir:
+
+- $\text{mover}(p, dt) = \text{avanza}(p, dt)$.
+- $\text{pasoSegmento}(S, dt, d, h) = \text{tramo}(S, dt, d, h)$.
+- $\text{pasoSecuencial}(S, dt) = \text{tramo}(S, dt, 0, n)$.
+- $\text{pasoParalelo}(S, dt, u) = \text{tramo}(S, dt, 0, n)$ para **cualquier** umbral $u$.
+
+### Corrección de `mover`
+
+```scala
+def mover(p: Particula, dt: Double): Particula =
+  p.copy(pos = p.pos + p.vel * dt)
+```
+
+No hay recursión ni iteración, así que basta evaluar. `p.vel * dt` es el vector $(v_x \cdot dt,\ v_y \cdot dt)$ y `p.pos + ...` suma componente a componente, luego la posición nueva es $\vec{r} + \vec{v} \cdot dt$. `copy(pos = ...)` deja `vel` y `masa` con los valores de `p`. Esto es $\text{avanza}(p, dt)$.
+
+### Corrección de `pasoSegmento` y `pasoSecuencial`
+
+```scala
+def pasoSegmento(s: Sistema, dt: Double, desde: Int, hasta: Int): Sistema =
+  (for (i <- desde until hasta) yield mover(s(i), dt)).toArray
+```
+
+La expresión `for ... yield` no tiene bucle ni estado: para cada $i \in [d, h)$ en orden creciente produce $\text{mover}(s_i, dt)$. Por eso el resultado tiene $h - d$ elementos (ninguno si $h \leq d$), y el elemento $j$, con $0 \leq j < h - d$, es $\text{avanza}(s_{d+j}, dt)$. Esto es exactamente $\text{tramo}(S, dt, d, h)$, y `s` solo se lee: el resultado es un arreglo nuevo.
+
+`pasoSecuencial(s, dt)` es `pasoSegmento(s, dt, 0, s.length)`, es decir $\text{tramo}(S, dt, 0, n)$.
+
+**Lema de concatenación.** Sea $\oplus$ la concatenación de arreglos (`++`). Para $d \leq m \leq h$:
+
+$$\text{tramo}(S, dt, d, m) \oplus \text{tramo}(S, dt, m, h) = \text{tramo}(S, dt, d, h)$$
+
+*Demostración.* Los dos lados tienen $(m - d) + (h - m) = h - d$ elementos. Sea $0 \leq j < h - d$.
+
+- Si $j < m - d$, el elemento $j$ del lado izquierdo es el elemento $j$ del primer tramo: $\text{avanza}(s_{d+j}, dt)$.
+- Si $j \geq m - d$, es el elemento $j - (m - d)$ del segundo tramo: $\text{avanza}(s_{m + j - (m - d)}, dt) = \text{avanza}(s_{d+j}, dt)$.
+
+En los dos casos coincide con el elemento $j$ de $\text{tramo}(S, dt, d, h)$. $\blacksquare$
+
+### Corrección de `pasoParalelo`
+
+```scala
+def pasoParalelo(s: Sistema, dt: Double, umbral: Int): Sistema = {
+  val piso = Math.max(umbral, 1)
+
+  def paso(desde: Int, hasta: Int): Sistema =
+    if (hasta - desde <= piso) pasoSegmento(s, dt, desde, hasta)
+    else {
+      val mitad = desde + (hasta - desde) / 2
+      val (izquierda, derecha) = parallel(paso(desde, mitad), paso(mitad, hasta))
+      izquierda ++ derecha
+    }
+
+  paso(0, s.length)
+}
+```
+
+**Sobre `parallel`.** `parallel(a, b)` devuelve la pareja de los valores de `a` y de `b`, en ese orden. Las dos expresiones solo leen `s` y construyen arreglos nuevos; ninguna escribe en algo que la otra lea. Por eso el resultado no depende de cuál termine primero, y se comporta igual que evaluar `a` y luego `b`.
+
+**Teorema.** Para todo $0 \leq d \leq h \leq n$: $\text{paso}(d, h) = \text{tramo}(S, dt, d, h)$.
+
+*Demostración* por inducción fuerte sobre $k = h - d$, con $\text{piso} \geq 1$.
+
+- **Caso base, $k \leq \text{piso}$.** El condicional toma la primera rama y `paso(d, h)` es `pasoSegmento(s, dt, d, h)`, que por lo anterior es $\text{tramo}(S, dt, d, h)$.
+- **Caso inductivo, $k > \text{piso}$.** Como $\text{piso} \geq 1$, se tiene $k \geq 2$. Sea $m = d + \lfloor k/2 \rfloor$. Entonces $1 \leq \lfloor k/2 \rfloor \leq k - 1$, luego $d < m < h$. Los dos tramos miden $\lfloor k/2 \rfloor < k$ y $k - \lfloor k/2 \rfloor < k$, así que por hipótesis de inducción $\text{paso}(d, m) = \text{tramo}(S, dt, d, m)$ y $\text{paso}(m, h) = \text{tramo}(S, dt, m, h)$. Entonces `paso(d, h)` devuelve $\text{tramo}(S, dt, d, m) \oplus \text{tramo}(S, dt, m, h)$, que por el lema de concatenación es $\text{tramo}(S, dt, d, h)$. $\blacksquare$
+
+**Conclusión.** `pasoParalelo(s, dt, u)` es `paso(0, s.length)`, es decir $\text{tramo}(S, dt, 0, n) = \text{pasoSecuencial}(S, dt)$, **sea cual sea el umbral** $u$.
+
+### Partir el sistema no pierde ni repite partículas
+
+Los dos tramos de cada partición son $[d, m)$ y $[m, h)$ con $d < m < h$.
+
+- **No se repite ninguna:** un índice $i$ está en el primero si $d \leq i < m$ y en el segundo si $m \leq i < h$. Las dos condiciones no pueden cumplirse a la vez.
+- **No se pierde ninguna:** todo $i$ con $d \leq i < h$ cumple $i < m$ o $i \geq m$, así que está en uno de los dos.
+
+Aplicado en cada nivel, los tramos de las hojas son disjuntos y su unión es $[0, n)$. Por ejemplo, con $n = 7$ y umbral 2 las hojas son $[0,1)$, $[1,3)$, $[3,5)$ y $[5,7)$, con $1 + 2 + 2 + 2 = 7$ partículas. Esto vale también cuando $k$ es impar, porque la mitad derecha absorbe la partícula que sobra.
+
+### La operación que combina es asociativa
+
+Los resultados parciales se combinan con $\oplus$, y es asociativa: para tres arreglos $A$, $B$, $C$,
+
+$$(A \oplus B) \oplus C = A \oplus (B \oplus C)$$
+
+*Demostración.* Los dos lados tienen $|A| + |B| + |C|$ elementos. El elemento $j$ de cualquiera de los dos es el elemento $j$ de $A$ si $j < |A|$; el elemento $j - |A|$ de $B$ si $|A| \leq j < |A| + |B|$; y el elemento $j - |A| - |B|$ de $C$ en el resto. $\blacksquare$
+
+El arreglo vacío es el neutro, y por eso los tramos vacíos no alteran el resultado. La concatenación no es conmutativa, y no tiene por qué serlo: `paso` pone siempre `izquierda` antes que `derecha`, sin importar cuál mitad termine primero.
+
+### Terminación
+
+En cada llamada recursiva el tamaño baja estrictamente: de $k$ a $\lfloor k/2 \rfloor$ y a $k - \lfloor k/2 \rfloor$, ambos menores que $k$ cuando $k \geq 2$. Como solo se parte con $k > \text{piso} \geq 1$, siempre se cumple $k \geq 2$ y los tamaños llegan a un valor menor o igual que el piso en un número finito de pasos.
+
+Sin el piso el argumento falla: con umbral 0 y un tramo de tamaño 1 se cumpliría $k > 0$, la mitad sería $\lfloor 1/2 \rfloor = 0$ y el tramo derecho volvería a ser $[d, h)$, con el mismo tamaño, sin terminar nunca. Por eso `piso = Math.max(umbral, 1)`.
+
 ---
 
 ## 2. Punto 2: Magnitudes Globales (Secuencial)
