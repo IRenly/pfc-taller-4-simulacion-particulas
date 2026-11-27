@@ -199,7 +199,7 @@ Por esta razón, la suma ponderada y la masa se pueden repartir en mitades arbit
 $$\frac{\vec{R}_{cm}(A) + \vec{R}_{cm}(B)}{2} \neq \frac{M_A \vec{R}_{cm}(A) + M_B \vec{R}_{cm}(B)}{M_A + M_B} = \vec{R}_{cm}(A \cup B)$$
 
 Nuestra implementación acumula explícitamente la suma ponderada y la masa total, garantizando la consistencia tanto en la versión secuencial como en su posterior extensión concurrente.
-# Punto 3: informe de corrección
+# Punto 3: Magnitudes Globales (Paralelo)
 
 ## 1. Corrección de `energiaParalela`
 
