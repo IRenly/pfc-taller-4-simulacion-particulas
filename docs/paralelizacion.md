@@ -96,6 +96,10 @@ tiempo estimado:
 S_{\text{estimada}} = \frac{\text{trabajo}(n)}{\text{tiempoEstimado}(n, p, u)}
 ```
 
+Al comparar los resultados estimados con los reales, se observa que son parecidos cuando el umbral es igual al tamaño del sistema, ya que no se divide el trabajo. En este caso, la aceleración medida es 1,02 y la estimada es 0,92.
+
+Sin embargo, cuando se divide el trabajo, aparecen diferencias mayores. La aceleración estimada llega a 11,96, mientras que la medida alcanza solamente 1,39 con un umbral de 256. Esto sucede porque la estimación no tiene en cuenta el tiempo que se necesita para repartir el trabajo, acceder a la memoria y combinar los resultados. También influye que cada concatenación izquierda ++ derecha crea un nuevo arreglo.
+
 ## Punto 5: las mediciones
 
 ### Cómo se tomaron los tiempos

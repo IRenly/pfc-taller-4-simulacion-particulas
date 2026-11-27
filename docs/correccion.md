@@ -449,3 +449,95 @@ El resultado coincide con la especificación.
 tiempoEstimado realiza una cantidad finita de operaciones y llama a profundidad, cuya terminación ya fue demostrada. La función trabajo devuelve directamente su argumento, por lo que también termina.
 
 En consecuencia, para entradas que cumplen las condiciones de los require, tiempoEstimado termina y devuelve el resultado especificado.
+
+
+# Punto 5: medir la aceleración
+
+## 1. Corrección de `aceleracion`
+
+La aceleración se define como la relación entre el tiempo de ejecución secuencial y el tiempo de ejecución paralelo.
+
+Su especificación matemática es:
+
+$$
+A = \frac{T_s}{T_p}
+$$
+
+Donde:
+
+* $T_s$ representa el tiempo secuencial.
+* $T_p$ representa el tiempo paralelo.
+
+La función realiza directamente la división entre los dos tiempos recibidos.
+
+Si ambos tiempos son positivos y el tiempo paralelo es menor que el secuencial, el resultado será mayor que uno, indicando una mejora en la ejecución.
+
+Por lo tanto, la función calcula correctamente la aceleración definida en la especificación.
+
+## 2. Corrección de `umbralConveniente`
+
+La función busca el umbral que produce el menor tiempo de ejecución entre una lista de candidatos.
+
+Su comportamiento se puede expresar como:
+
+$$
+U = \operatorname*{arg\,min}_{u \in L} T(u)
+$$
+
+Donde:
+
+* $L$ es la lista de umbrales candidatos.
+* $T(u)$ es el tiempo medido utilizando el umbral $u$.
+* $U$ es el umbral seleccionado.
+
+La implementación realiza dos casos:
+
+### Caso 1: lista vacía
+
+Si la lista de umbrales está vacía, devuelve `s.length`.
+
+Esto equivale a utilizar un umbral igual al tamaño del sistema, por lo que no es necesario dividir el trabajo.
+
+### Caso 2: lista con candidatos
+
+Para cada umbral se ejecuta `pasoParalelo` y se mide su tiempo utilizando tres repeticiones.
+
+Después se utiliza `minBy(_._2)` para seleccionar el elemento con el menor tiempo registrado.
+
+Finalmente, se devuelve el umbral correspondiente a ese resultado.
+
+Por lo tanto, la función selecciona correctamente el umbral con menor tiempo medido dentro de la lista proporcionada.
+
+## 3. Corrección de `medir`
+
+La función realiza varias mediciones del mismo proceso utilizando ScalaMeter.
+
+Primero se ejecuta el proceso la cantidad de veces indicada por `repeticiones`.
+
+Después se ordenan las mediciones de menor a mayor mediante `sorted`.
+
+Finalmente, se selecciona el elemento central del vector.
+
+Para cinco mediciones, el resultado corresponde a la tercera medición una vez ordenadas.
+
+De esta manera, se utiliza la mediana para reducir la influencia de valores extremos y obtener una medida más representativa del tiempo de ejecución.
+
+## 4. Corrección del proceso de medición
+
+En `App.scala` se mide primero el tiempo secuencial y después el tiempo paralelo para cada umbral.
+
+La aceleración se calcula mediante:
+
+$$
+A(u) = \frac{T_{\text{secuencial}}}{T_{\text{paralelo}}(u)}
+$$
+
+También se calcula la aceleración estimada utilizando las funciones del punto 4.
+
+Finalmente, se muestran los resultados y se busca el umbral conveniente.
+
+La comparación permite observar si la aceleración real se aproxima a la estimada.
+
+Es importante tener en cuenta que los tiempos dependen de los núcleos disponibles, de la máquina y de otros procesos que se estén ejecutando.
+
+Por esta razón, las mediciones permiten comparar el comportamiento de los diferentes umbrales, pero no garantizan los mismos tiempos en todos los equipos.

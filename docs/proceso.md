@@ -271,7 +271,7 @@ Recibe dos parámetros:
 ```scala
 def tiempoEstimado(n: Int, p: Int, umbral: Int): Double = {
   require(p > 0, "El # de procesadores debe ser mayor a 0.")
-  profundidad(n, umbral) + (trabajo(n)/p)
+  profundidad(n, umbral) + (trabajo(n).toDouble/p)
 }
 ```
 
@@ -318,7 +318,7 @@ Recibe tres parámetros:
 
 - Se suman ambos resultados y se devuelve el valor como Double.
 
-Importante: Como `trabajo(n)` y `p` son de tipo Int, la división `trabajo(n)/p` es una división entera. Por lo tanto, se descarta la parte decimal antes de sumarla a la profundidad.
+Importante: Como `trabajo(n)` y `p` son de tipo Int, la división `trabajo(n)/p` es una división entera. Por lo tanto, se convierte el resultado de `trabajo(n)` a Double para que no se descarten los decimales.
 
 ### Diagrama de llamados
 
@@ -350,4 +350,82 @@ sequenceDiagram
     T->>T: Calcular trabajo(n) / p
     T->>T: Sumar profundidad y trabajo dividido
     T-->>M: Double
+```
+
+# Punto 5: medir la aceleración
+
+## 1. `aceleracion`
+
+La función recibe el tiempo de ejecución secuencial y el tiempo de ejecución paralelo. Calcula la aceleración dividiendo el tiempo secuencial entre el paralelo.
+
+```scala
+def aceleracion(tSecuencial: Double, tParalelo: Double): Double =
+  tSecuencial / tParalelo
+```
+
+La aceleración permite conocer cuánto más rápido se ejecuta el programa en paralelo en comparación con la versión secuencial.
+
+Recibe dos parámetros:
+
+* `tSecuencial`: Tiempo que tarda la ejecución secuencial.
+* `tParalelo`: Tiempo que tarda la ejecución paralela.
+
+## 2. `umbralConveniente`
+
+La función recibe un sistema de partículas, un intervalo de tiempo `dt` y una lista de umbrales candidatos.
+
+Primero comprueba si la lista está vacía. Si no hay candidatos, devuelve el tamaño del sistema, lo que equivale a ejecutar el proceso sin dividirlo.
+
+Si existen umbrales, mide el tiempo de ejecución de `pasoParalelo` para cada uno, utilizando tres mediciones. Después selecciona el umbral que obtuvo el menor tiempo.
+
+Recibe tres parámetros:
+
+* `s`: Sistema de partículas que se va a procesar.
+* `dt`: Intervalo de tiempo de la simulación.
+* `umbrales`: Lista de umbrales que se van a comparar.
+
+## 3. Proceso de medición en `App.scala`
+
+Para realizar las mediciones se utiliza un sistema de 1.000.000 de partículas. Estas se generan con valores aleatorios utilizando una semilla fija de 42, para mantener los mismos datos entre ejecuciones.
+
+Se obtiene la cantidad de núcleos disponibles mediante `Runtime.getRuntime.availableProcessors`.
+
+Se utiliza un intervalo de tiempo `dt = 0.5` y se prueban los siguientes umbrales:
+
+* 1.000.000
+* 250.000
+* 62.500
+* 15.625
+* 4.096
+* 1.024
+* 256
+
+Primero se mide el tiempo de ejecución secuencial mediante cinco repeticiones.
+
+Después se mide el tiempo de ejecución paralelo para cada umbral, también con cinco repeticiones. Con estos tiempos se calcula la aceleración y se compara con la aceleración estimada del punto anterior.
+
+Finalmente, se utiliza `umbralConveniente` para identificar cuál de los umbrales probados obtiene el menor tiempo de ejecución.
+
+## 4. Función `medir`
+
+La función utiliza ScalaMeter para realizar las mediciones y obtener la mediana de los tiempos registrados.
+
+Primero genera varias mediciones del proceso recibido. Después ordena los resultados y selecciona el valor central.
+
+De esta manera, se reduce la influencia de mediciones demasiado altas o bajas.
+
+## 5. Diagrama del proceso
+
+```mermaid
+flowchart TD
+    A["Crear sistema de 1.000.000 de partículas"] --> B["Obtener núcleos disponibles"]
+    B --> C["Medir ejecución secuencial"]
+    C --> D["Recorrer lista de umbrales"]
+    D --> E["Medir ejecución paralela"]
+    E --> F["Calcular aceleración"]
+    F --> G["Calcular aceleración estimada"]
+    G --> H{"¿Quedan umbrales?"}
+    H -->|Sí| D
+    H -->|No| I["Buscar umbral conveniente"]
+    I --> J["Mostrar resultados"]
 ```

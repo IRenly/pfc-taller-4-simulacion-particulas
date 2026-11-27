@@ -149,7 +149,7 @@ class SimulacionParticulas {
   /** La profundidad más el trabajo entre p procesadores. */
   def tiempoEstimado(n: Int, p: Int, umbral: Int): Double = {
     require(p > 0, "El # de procesadores debe ser mayor a 0.")
-    profundidad(n,umbral) + (trabajo(n)/p)
+    profundidad(n,umbral) + (trabajo(n).toDouble/p)
   }
 
   // Punto 5: medir la aceleración ---------------------------------------------
